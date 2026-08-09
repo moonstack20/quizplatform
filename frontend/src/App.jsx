@@ -1,10 +1,14 @@
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import AdminDashboard from "./pages/admin/AdminDashboard";
+import StudentDashboard from "./pages/student/StudentDashboard";
+import ProtectedRoute from "./components/ProtectedRoute";
 import { useAuth } from "./context/AuthContext";
 
+// Redirects a logged-in user to their role's dashboard; sends others to login
 function Home() {
-  const { user, logout, loading } = useAuth();
+  const { user, loading } = useAuth();
 
   if (loading) {
     return (
@@ -14,42 +18,37 @@ function Home() {
     );
   }
 
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50">
-      <div className="text-center">
-        <h1 className="text-2xl font-semibold text-slate-800">Quiz Platform</h1>
-        {user ? (
-          <div className="mt-4">
-            <p className="text-slate-600">
-              Logged in as <span className="font-medium">{user.name}</span> ({user.role})
-            </p>
-            <button
-              onClick={logout}
-              className="mt-3 text-sm text-slate-500 hover:text-slate-800 underline"
-            >
-              Log out
-            </button>
-          </div>
-        ) : (
-          <p className="mt-2 text-slate-500">
-            Not logged in.{" "}
-            <a href="/login" className="text-slate-800 font-medium hover:underline">
-              Log in
-            </a>
-          </p>
-        )}
-      </div>
-    </div>
-  );
+  if (!user) return <Navigate to="/login" replace />;
+  if (user.role === "ADMIN") return <Navigate to="/admin/dashboard" replace />;
+  return <Navigate to="/dashboard" replace />;
 }
 
-// Day 3+: replace with real routes (/admin/*, /dashboard, /quizzes, etc.) and protected routing
+// Day 4+: expand admin routes (/admin/users, /admin/quizzes, etc.)
+// Day 7+: expand student routes (/quizzes, /attempts, /leaderboard, etc.)
 function App() {
   return (
     <Routes>
       <Route path="/" element={<Home />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
+
+      <Route
+        path="/admin/dashboard"
+        element={
+          <ProtectedRoute allowedRoles={["ADMIN"]}>
+            <AdminDashboard />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/dashboard"
+        element={
+          <ProtectedRoute allowedRoles={["STUDENT"]}>
+            <StudentDashboard />
+          </ProtectedRoute>
+        }
+      />
     </Routes>
   );
 }
