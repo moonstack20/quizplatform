@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { fetchDashboardStats, fetchUsers, updateUserStatus, deleteUser } from "../../api/users";
+import { Link } from "react-router-dom";
+
 
 function StatCard({ label, value }) {
   return (
@@ -62,6 +64,12 @@ function AdminDashboard() {
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-semibold text-slate-800">Admin Dashboard</h1>
           <div className="flex items-center gap-4">
+            <Link to="/admin/categories" className="text-sm text-slate-600 hover:underline">
+              Categories
+            </Link>
+            <Link to="/admin/quizzes" className="text-sm text-slate-600 hover:underline">
+              Quizzes
+            </Link>
             <span className="text-sm text-slate-500">{user.name}</span>
             <button onClick={logout} className="text-sm text-slate-500 hover:text-slate-800 underline">
               Log out

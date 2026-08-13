@@ -5,6 +5,9 @@ import AdminDashboard from "./pages/admin/AdminDashboard";
 import StudentDashboard from "./pages/student/StudentDashboard";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { useAuth } from "./context/AuthContext";
+import CategoryManagement from "./pages/admin/CategoryManagement";
+import QuizManagement from "./pages/admin/QuizManagement";
+
 
 // Redirects a logged-in user to their role's dashboard; sends others to login
 function Home() {
@@ -46,6 +49,23 @@ function App() {
         element={
           <ProtectedRoute allowedRoles={["STUDENT"]}>
             <StudentDashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/categories"
+        element={
+          <ProtectedRoute allowedRoles={["ADMIN"]}>
+            <CategoryManagement />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/admin/quizzes"
+        element={
+          <ProtectedRoute allowedRoles={["ADMIN"]}>
+            <QuizManagement />
           </ProtectedRoute>
         }
       />
