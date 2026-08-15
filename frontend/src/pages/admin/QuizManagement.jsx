@@ -255,6 +255,9 @@ function QuizManagement() {
                       </span>
                     </td>
                     <td className="py-2 space-x-3">
+                      <Link to={`/admin/quizzes/${quiz.id}/questions`} className="text-slate-600 hover:underline">
+                        Questions
+                      </Link>
                       <button onClick={() => handleEdit(quiz)} className="text-slate-600 hover:underline">
                         Edit
                       </button>

@@ -7,6 +7,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import { useAuth } from "./context/AuthContext";
 import CategoryManagement from "./pages/admin/CategoryManagement";
 import QuizManagement from "./pages/admin/QuizManagement";
+import QuestionManagement from "./pages/admin/QuestionManagement";
 
 
 // Redirects a logged-in user to their role's dashboard; sends others to login
@@ -66,6 +67,14 @@ function App() {
         element={
           <ProtectedRoute allowedRoles={["ADMIN"]}>
             <QuizManagement />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/quizzes/:quizId/questions"
+        element={
+          <ProtectedRoute allowedRoles={["ADMIN"]}>
+            <QuestionManagement />
           </ProtectedRoute>
         }
       />
