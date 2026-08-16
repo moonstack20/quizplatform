@@ -194,3 +194,71 @@ def submit_attempt(attempt_id):
     db.session.commit()
 
     return jsonify({"attempt": attempt.to_dict()}), 200
+@attempt_bp.route("/attempts/<attempt_id>/review", methods=["GET"])
+@student_required
+def review_attempt(attempt_id):
+    user_id = get_jwt_identity()
+    attempt = Attempt.query.get(attempt_id)
+
+    if not attempt or attempt.user_id != user_id:
+        return jsonify({"error": "attempt not found"}), 404
+
+    if attempt.status == "IN_PROGRESS":
+        return jsonify({"error": "this attempt has not been submitted yet"}), 400
+
+    quiz = Quiz.query.get(attempt.quiz_id)
+    answers = Answer.query.filter_by(attempt_id=attempt.id).all()
+
+    review = []
+    for answer in answers:
+        question = Question.query.get(answer.question_id)
+        review.append({
+            "question_text": question.question_text,
+            "explanation": question.explanation,
+            "marks": question.marks,
+            "is_correct": answer.is_correct,
+            "options": [
+                {
+                    "id": o.id,
+                    "option_text": o.option_text,
+                    "is_correct": o.is_correct,
+                    "was_selected": o.id == answer.selected_option_id,
+                }
+                for o in question.options
+            ],
+        })
+
+    return jsonify({
+        "attempt": attempt.to_dict(),
+        "quiz_title": quiz.title,
+        "review": review,
+    }), 200
+
+
+@attempt_bp.route("/attempts/stats/dashboard", methods=["GET"])
+@student_required
+def student_dashboard_stats():
+    user_id = get_jwt_identity()
+    attempts = Attempt.query.filter(
+        Attempt.user_id == user_id,
+        Attempt.status.in_(["PASSED", "FAILED"]),
+    ).all()
+
+    total_attempted = len(attempts)
+    passed = len([a for a in attempts if a.status == "PASSED"])
+    failed = len([a for a in attempts if a.status == "FAILED"])
+    scores = [a.percentage for a in attempts if a.percentage is not None]
+    average_score = round(sum(scores) / len(scores), 1) if scores else 0
+    highest_score = max(scores) if scores else 0
+    total_questions_answered = sum(
+        (a.correct_answers or 0) + (a.incorrect_answers or 0) for a in attempts
+    )
+
+    return jsonify({
+        "quizzes_attempted": total_attempted,
+        "quizzes_passed": passed,
+        "quizzes_failed": failed,
+        "average_score": average_score,
+        "highest_score": highest_score,
+        "total_questions_answered": total_questions_answered,
+    }), 200
