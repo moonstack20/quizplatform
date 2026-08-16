@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
-import { fetchStudentStats, fetchMyAttempts } from "../../api/attempts";
+import { fetchStudentStats, fetchMyAttempts, fetchCategoryStats } from "../../api/attempts";
 
 function StatCard({ label, value }) {
   return (
@@ -16,17 +16,20 @@ function StudentDashboard() {
   const { user, logout } = useAuth();
   const [stats, setStats] = useState(null);
   const [attempts, setAttempts] = useState([]);
+  const [categoryStats, setCategoryStats] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const load = async () => {
       setLoading(true);
-      const [statsData, attemptsData] = await Promise.all([
+      const [statsData, attemptsData, categoryData] = await Promise.all([
         fetchStudentStats(),
         fetchMyAttempts(),
+        fetchCategoryStats(),
       ]);
       setStats(statsData);
       setAttempts(attemptsData.attempts.filter((a) => a.status !== "IN_PROGRESS"));
+      setCategoryStats(categoryData);
       setLoading(false);
     };
     load();
@@ -60,6 +63,36 @@ function StudentDashboard() {
                 <StatCard label="Average Score" value={`${stats.average_score}%`} />
                 <StatCard label="Highest Score" value={`${stats.highest_score}%`} />
                 <StatCard label="Questions Answered" value={stats.total_questions_answered} />
+              </div>
+            )}
+
+            {categoryStats && categoryStats.categories.length > 0 && (
+              <div className="bg-white border border-slate-200 rounded-lg p-6 mb-6">
+                <h2 className="text-lg font-semibold text-slate-800 mb-4">Performance by Category</h2>
+                <div className="space-y-2">
+                  {categoryStats.categories.map((c) => (
+                    <div key={c.category} className="flex items-center gap-3">
+                      <span className="w-28 text-sm text-slate-600 shrink-0">{c.category}</span>
+                      <div className="flex-1 bg-slate-100 rounded-full h-2.5">
+                        <div
+                          className={`h-2.5 rounded-full ${
+                            c.average_score >= 60 ? "bg-green-500" : "bg-red-400"
+                          }`}
+                          style={{ width: `${c.average_score}%` }}
+                        />
+                      </div>
+                      <span className="text-sm font-medium text-slate-700 w-14 text-right">
+                        {c.average_score}%
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                {categoryStats.weakest && categoryStats.strongest && (
+                  <p className="text-xs text-slate-500 mt-4">
+                    Strongest: <span className="font-medium">{categoryStats.strongest.category}</span> ·
+                    Weakest: <span className="font-medium">{categoryStats.weakest.category}</span>
+                  </p>
+                )}
               </div>
             )}
 

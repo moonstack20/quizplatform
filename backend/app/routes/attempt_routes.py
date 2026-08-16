@@ -7,6 +7,12 @@ from app.models.question import Question
 from app.models.attempt import Attempt
 from app.models.answer import Answer
 from app import db
+from io import BytesIO
+from flask import send_file
+from reportlab.lib.pagesizes import landscape, letter
+from reportlab.lib.colors import HexColor
+from reportlab.pdfgen import canvas
+
 
 attempt_bp = Blueprint("attempts", __name__)
 
@@ -214,6 +220,8 @@ def review_attempt(attempt_id):
         question = Question.query.get(answer.question_id)
         review.append({
             "question_text": question.question_text,
+            "question_id": question.id,
+            "question_text": question.question_text,
             "explanation": question.explanation,
             "marks": question.marks,
             "is_correct": answer.is_correct,
@@ -278,3 +286,253 @@ def record_tab_switch(attempt_id):
     db.session.commit()
 
     return jsonify({"tab_switch_count": attempt.tab_switch_count}), 200
+@attempt_bp.route("/attempts/<attempt_id>/certificate", methods=["GET"])
+@student_required
+def download_certificate(attempt_id):
+    import math
+    from reportlab.lib.pagesizes import letter
+
+    user_id = get_jwt_identity()
+    attempt = Attempt.query.get(attempt_id)
+
+    if not attempt or attempt.user_id != user_id:
+        return jsonify({"error": "attempt not found"}), 404
+
+    if attempt.status != "PASSED":
+        return jsonify({"error": "certificate only available for passed attempts"}), 400
+
+    from app.models.user import User
+    quiz = Quiz.query.get(attempt.quiz_id)
+    user = User.query.get(user_id)
+
+    buffer = BytesIO()
+    page_size = letter  # portrait, like the reference
+    c = canvas.Canvas(buffer, pagesize=page_size)
+    width, height = page_size
+
+    navy = HexColor("#1e3a5f")
+    slate = HexColor("#475569")
+    light_slate = HexColor("#94a3b8")
+    ribbon_bg = HexColor("#e8ecf3")
+    gold = HexColor("#b8860b")
+
+    # Outer thin border
+    c.setStrokeColor(HexColor("#cbd5e1"))
+    c.setLineWidth(1)
+    c.rect(28, 28, width - 56, height - 56)
+
+    margin_left = 65
+    content_width = width - 260  # leave room for ribbon on the right
+
+    # "Logo" / platform wordmark, top-left
+    c.setFont("Helvetica-Bold", 22)
+    c.setFillColor(navy)
+    c.drawString(margin_left, height - 90, "QuizPlatform")
+    c.setFont("Helvetica", 9)
+    c.setFillColor(light_slate)
+    c.drawString(margin_left + 1, height - 104, "ONLINE ASSESSMENT")
+
+    # Date
+    c.setFont("Helvetica", 10)
+    c.setFillColor(slate)
+    date_str = attempt.completed_at.strftime("%b %d, %Y") if attempt.completed_at else ""
+    c.drawString(margin_left, height - 160, date_str)
+
+    # Name, large serif
+    c.setFont("Times-Roman", 30)
+    c.setFillColor(HexColor("#1e293b"))
+    c.drawString(margin_left, height - 200, user.name)
+
+    # "has successfully completed"
+    c.setFont("Helvetica", 11)
+    c.setFillColor(slate)
+    c.drawString(margin_left, height - 228, "has successfully passed the assessment")
+
+    # Quiz title
+    c.setFont("Times-Bold", 18)
+    c.setFillColor(navy)
+    c.drawString(margin_left, height - 258, quiz.title)
+
+    # Description line
+    c.setFont("Helvetica", 10)
+    c.setFillColor(slate)
+    desc = f"an online quiz assessment scored {attempt.percentage}%, offered through Quiz Platform"
+    c.drawString(margin_left, height - 280, desc)
+
+    # Stats row
+    stats_y = height - 320
+    c.setFont("Helvetica-Bold", 10)
+    c.setFillColor(navy)
+    c.drawString(margin_left, stats_y, f"Score: {attempt.percentage}%")
+    c.drawString(margin_left + 130, stats_y, f"Correct: {attempt.correct_answers}/{attempt.correct_answers + attempt.incorrect_answers + attempt.unanswered}")
+    c.drawString(margin_left + 280, stats_y, f"Time: {attempt.time_taken_seconds // 60}m {attempt.time_taken_seconds % 60}s")
+
+    # Signature block, bottom-left
+    sig_y = 130
+    c.setFont("Times-Italic", 20)
+    c.setFillColor(navy)
+    c.drawString(margin_left, sig_y + 28, "Q. Platform")
+    c.setStrokeColor(light_slate)
+    c.setLineWidth(0.75)
+    c.line(margin_left, sig_y + 16, margin_left + 200, sig_y + 16)
+    c.setFont("Helvetica", 9)
+    c.setFillColor(slate)
+    c.drawString(margin_left, sig_y, "Quiz Platform")
+    c.drawString(margin_left, sig_y - 12, "Automated Assessment System")
+
+    # Footer disclaimer
+    c.setFont("Helvetica", 7.5)
+    c.setFillColor(light_slate)
+    footer_text = "This certificate attests to the learner's completion of an online quiz assessment on Quiz Platform."
+    c.drawCentredString((margin_left + content_width) / 2 + 20, 55, footer_text)
+    c.drawCentredString(
+        (margin_left + content_width) / 2 + 20, 44,
+        f"Verify at quizplatform.local/verify/{attempt.id[:8]}"
+    )
+
+    # --- Vertical ribbon banner, right side ---
+    ribbon_left = width - 180
+    ribbon_right = width - 60
+    ribbon_top = height - 40
+    ribbon_bottom = 280
+    notch_depth = 40
+
+    c.setFillColor(ribbon_bg)
+    p = c.beginPath()
+    p.moveTo(ribbon_left, ribbon_top)
+    p.lineTo(ribbon_right, ribbon_top)
+    p.lineTo(ribbon_right, ribbon_bottom)
+    p.lineTo((ribbon_left + ribbon_right) / 2, ribbon_bottom - notch_depth)
+    p.lineTo(ribbon_left, ribbon_bottom)
+    p.close()
+    c.drawPath(p, fill=1, stroke=0)
+
+    # Ribbon text
+    ribbon_center_x = (ribbon_left + ribbon_right) / 2
+    c.setFont("Helvetica-Bold", 11)
+    c.setFillColor(navy)
+    c.drawCentredString(ribbon_center_x, ribbon_top - 35, "QUIZ")
+    c.drawCentredString(ribbon_center_x, ribbon_top - 50, "CERTIFICATE")
+
+    # Circular seal within the ribbon
+    seal_cx = ribbon_center_x
+    seal_cy = (ribbon_top + ribbon_bottom) / 2 - 10
+    seal_r = 48
+
+    # Dotted outer ring
+    c.setFillColor(gold)
+    num_dots = 40
+    for i in range(num_dots):
+        angle = 2 * math.pi * i / num_dots
+        dot_x = seal_cx + (seal_r + 6) * math.cos(angle)
+        dot_y = seal_cy + (seal_r + 6) * math.sin(angle)
+        c.circle(dot_x, dot_y, 0.8, fill=1, stroke=0)
+
+    # Inner solid circle
+    c.setFillColor(HexColor("#ffffff"))
+    c.setStrokeColor(gold)
+    c.setLineWidth(1.5)
+    c.circle(seal_cx, seal_cy, seal_r, fill=1, stroke=1)
+    c.setStrokeColor(navy)
+    c.setLineWidth(0.5)
+    c.circle(seal_cx, seal_cy, seal_r - 6, fill=0, stroke=1)
+
+    c.setFont("Helvetica-Bold", 9)
+    c.setFillColor(navy)
+    c.drawCentredString(seal_cx, seal_cy + 14, "PASSED")
+    c.setFont("Helvetica-Bold", 20)
+    c.drawCentredString(seal_cx, seal_cy - 5, f"{int(attempt.percentage)}%")
+    c.setFont("Helvetica", 6.5)
+    c.setFillColor(slate)
+    c.drawCentredString(seal_cx, seal_cy - 22, "VERIFIED SCORE")
+
+    c.save()
+    buffer.seek(0)
+
+    return send_file(
+        buffer,
+        mimetype="application/pdf",
+        as_attachment=True,
+        download_name=f"certificate-{quiz.title.replace(' ', '-')}.pdf",
+    )
+@attempt_bp.route("/attempts/stats/by-category", methods=["GET"])
+@student_required
+def stats_by_category():
+    from app.models.category import Category
+
+    user_id = get_jwt_identity()
+
+    results = (
+        db.session.query(
+            Category.name,
+            db.func.avg(Attempt.percentage).label("average_score"),
+            db.func.count(Attempt.id).label("attempts"),
+        )
+        .join(Quiz, Quiz.category_id == Category.id)
+        .join(Attempt, Attempt.quiz_id == Quiz.id)
+        .filter(
+            Attempt.user_id == user_id,
+            Attempt.status.in_(["PASSED", "FAILED"]),
+        )
+        .group_by(Category.id, Category.name)
+        .all()
+    )
+
+    categories = [
+        {
+            "category": name,
+            "average_score": round(float(avg), 1),
+            "attempts": count,
+        }
+        for name, avg, count in results
+    ]
+
+    categories.sort(key=lambda c: c["average_score"])
+
+    return jsonify({
+        "categories": categories,
+        "weakest": categories[0] if categories else None,
+        "strongest": categories[-1] if len(categories) > 1 else None,
+    }), 200
+@attempt_bp.route("/questions/<question_id>/explain", methods=["POST"])
+@student_required
+def generate_explanation(question_id):
+    from groq import Groq
+    from flask import current_app
+
+    question = Question.query.get(question_id)
+    if not question:
+        return jsonify({"error": "question not found"}), 404
+
+    # If the admin already wrote an explanation, just return it — no need to call the AI
+    if question.explanation and question.explanation.strip():
+        return jsonify({"explanation": question.explanation, "source": "admin"}), 200
+
+    correct_option = next((o for o in question.options if o.is_correct), None)
+    if not correct_option:
+        return jsonify({"error": "no correct option found for this question"}), 400
+
+    options_text = "\n".join(f"- {o.option_text}" for o in question.options)
+
+    prompt = (
+        f"Question: {question.question_text}\n"
+        f"Options:\n{options_text}\n"
+        f"Correct answer: {correct_option.option_text}\n\n"
+        "Write a short, clear explanation (2-3 sentences max) of why this is the correct answer. "
+        "Do not repeat the question. Be direct and educational, suitable for a student reviewing "
+        "a quiz result."
+    )
+
+    try:
+        client = Groq(api_key=current_app.config["GROQ_API_KEY"])
+        response = client.chat.completions.create(
+            model="llama-3.1-8b-instant",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=150,
+            temperature=0.5,
+        )
+        explanation = response.choices[0].message.content.strip()
+    except Exception as e:
+        return jsonify({"error": "could not generate explanation", "detail": str(e)}), 502
+
+    return jsonify({"explanation": explanation, "source": "ai"}), 200

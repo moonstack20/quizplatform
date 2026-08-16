@@ -54,3 +54,17 @@ export async function startAttempt(quizId) {
     const res = await apiClient.patch(`/attempts/${attemptId}/tab-switch`);
     return res.data;
   }
+  export async function downloadCertificate(attemptId, quizTitle) {
+    const res = await apiClient.get(`/attempts/${attemptId}/certificate`, {
+      responseType: "blob",
+    });
+    const url = window.URL.createObjectURL(new Blob([res.data]));
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", `certificate-${quizTitle.replace(/\s+/g, "-")}.pdf`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  }
+  

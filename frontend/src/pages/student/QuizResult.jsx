@@ -1,11 +1,14 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { fetchAttemptReview } from "../../api/attempts";
+import { fetchAttemptReview, generateExplanation } from "../../api/attempts";
+import { downloadCertificate } from "../../api/quizzes";
 
 function QuizResult() {
   const { attemptId } = useParams();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [explanations, setExplanations] = useState({});
+  const [loadingExplanation, setLoadingExplanation] = useState(null);
 
   useEffect(() => {
     const load = async () => {
@@ -26,6 +29,18 @@ function QuizResult() {
 
   const { attempt, quiz_title, review } = data;
   const passed = attempt.status === "PASSED";
+
+  const handleGetExplanation = async (questionId) => {
+    setLoadingExplanation(questionId);
+    try {
+      const result = await generateExplanation(questionId);
+      setExplanations((prev) => ({ ...prev, [questionId]: result.explanation }));
+    } catch (err) {
+      setExplanations((prev) => ({ ...prev, [questionId]: "Could not load explanation." }));
+    } finally {
+      setLoadingExplanation(null);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-slate-50 p-8">
@@ -61,6 +76,15 @@ function QuizResult() {
           <p className="text-xs text-slate-400 mt-4">
             Time taken: {Math.floor(attempt.time_taken_seconds / 60)}m {attempt.time_taken_seconds % 60}s
           </p>
+
+          {passed && (
+            <button
+              onClick={() => downloadCertificate(attempt.id, quiz_title)}
+              className="mt-5 inline-flex items-center gap-2 bg-amber-600 text-white px-4 py-2 rounded text-sm hover:bg-amber-700"
+            >
+              Download Certificate
+            </button>
+          )}
         </div>
 
         <h2 className="text-lg font-semibold text-slate-800 mt-8 mb-4">Answer Review</h2>
@@ -106,10 +130,23 @@ function QuizResult() {
                 ))}
               </ul>
 
-              {q.explanation && (
+              {q.explanation ? (
                 <p className="text-xs text-slate-500 mt-3 bg-slate-50 rounded px-3 py-2">
                   {q.explanation}
                 </p>
+              ) : explanations[q.question_id] ? (
+                <p className="text-xs text-slate-600 mt-3 bg-purple-50 border border-purple-100 rounded px-3 py-2">
+                  <span className="font-medium text-purple-700">AI explanation: </span>
+                  {explanations[q.question_id]}
+                </p>
+              ) : (
+                <button
+                  onClick={() => handleGetExplanation(q.question_id)}
+                  disabled={loadingExplanation === q.question_id}
+                  className="mt-3 text-xs text-purple-600 hover:underline disabled:opacity-50"
+                >
+                  {loadingExplanation === q.question_id ? "Generating explanation..." : "✨ Get AI explanation"}
+                </button>
               )}
             </div>
           ))}
