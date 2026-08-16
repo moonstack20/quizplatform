@@ -1,6 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { fetchAttempt, saveAnswer } from "../../api/quizzes";
+import { fetchAttempt, saveAnswer, submitAttempt } from "../../api/quizzes";
+
+function formatTime(totalSeconds) {
+  const m = Math.floor(totalSeconds / 60);
+  const s = totalSeconds % 60;
+  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+}
 
 function QuizAttempt() {
   const { attemptId } = useParams();
@@ -11,6 +17,23 @@ function QuizAttempt() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [secondsLeft, setSecondsLeft] = useState(null);
+  const submittedRef = useRef(false);
+
+  const handleSubmit = useCallback(async () => {
+    if (submittedRef.current) return;
+    submittedRef.current = true;
+    setSubmitting(true);
+    try {
+      await submitAttempt(attemptId);
+      navigate(`/quizzes/result/${attemptId}`);
+    } catch (err) {
+      submittedRef.current = false;
+      setSubmitting(false);
+      alert(err.response?.data?.error || "Could not submit quiz.");
+    }
+  }, [attemptId, navigate]);
 
   useEffect(() => {
     const load = async () => {
@@ -19,10 +42,42 @@ function QuizAttempt() {
       setQuiz(data.quiz);
       setQuestions(data.questions);
       setAnswers(data.answers || {});
+
+      const expiresAt = new Date(data.attempt.expires_at).getTime();
+      const now = Date.now();
+      const remaining = Math.max(0, Math.floor((expiresAt - now) / 1000));
+      setSecondsLeft(remaining);
+
       setLoading(false);
     };
     load();
   }, [attemptId]);
+
+  // Countdown timer — the backend is still the source of truth on submit;
+  // this just drives the UI and triggers auto-submit when it hits zero.
+  useEffect(() => {
+    if (secondsLeft === null) return;
+    if (secondsLeft <= 0) {
+      handleSubmit();
+      return;
+    }
+    const interval = setInterval(() => {
+      setSecondsLeft((s) => {
+        if (s <= 1) {
+          clearInterval(interval);
+          return 0;
+        }
+        return s - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [secondsLeft === null]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (secondsLeft === 0) {
+      handleSubmit();
+    }
+  }, [secondsLeft, handleSubmit]);
 
   const currentQuestion = questions[currentIndex];
 
@@ -42,16 +97,13 @@ function QuizAttempt() {
 
   const answeredCount = Object.values(answers).filter(Boolean).length;
 
-  const handleSubmit = () => {
-    // Real scoring + submission wired in on Day 8.
-    // For now this just confirms all answers have been saved.
+  const handleManualSubmit = () => {
     if (answeredCount < questions.length) {
       if (!confirm(`You've answered ${answeredCount} of ${questions.length} questions. Submit anyway?`)) {
         return;
       }
     }
-    alert("Submission and scoring will be wired up tomorrow (Day 8). Your answers are saved.");
-    navigate("/quizzes");
+    handleSubmit();
   };
 
   if (loading) {
@@ -70,17 +122,27 @@ function QuizAttempt() {
     );
   }
 
+  const timeCritical = secondsLeft !== null && secondsLeft <= 60;
+
   return (
     <div className="min-h-screen bg-slate-50 p-8">
       <div className="max-w-3xl mx-auto">
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-lg font-semibold text-slate-800">{quiz?.title}</h1>
-          <Link to="/quizzes" className="text-sm text-slate-500 hover:text-slate-800 underline">
-            Exit
-          </Link>
+          <div className="flex items-center gap-4">
+            <span
+              className={`font-mono text-sm px-3 py-1 rounded ${
+                timeCritical ? "bg-red-100 text-red-700" : "bg-slate-100 text-slate-700"
+              }`}
+            >
+              {secondsLeft !== null ? formatTime(secondsLeft) : "--:--"}
+            </span>
+            <Link to="/quizzes" className="text-sm text-slate-500 hover:text-slate-800 underline">
+              Exit
+            </Link>
+          </div>
         </div>
 
-        {/* Question navigation dots */}
         <div className="flex flex-wrap gap-2 mb-6">
           {questions.map((q, i) => (
             <button
@@ -152,10 +214,11 @@ function QuizAttempt() {
             </button>
           ) : (
             <button
-              onClick={handleSubmit}
-              className="px-4 py-2 text-sm bg-green-700 text-white rounded hover:bg-green-800"
+              onClick={handleManualSubmit}
+              disabled={submitting}
+              className="px-4 py-2 text-sm bg-green-700 text-white rounded hover:bg-green-800 disabled:opacity-50"
             >
-              Submit Quiz
+              {submitting ? "Submitting..." : "Submit Quiz"}
             </button>
           )}
         </div>

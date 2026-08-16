@@ -46,3 +46,7 @@ export async function startAttempt(quizId) {
     });
     return res.data;
   }
+  export async function submitAttempt(attemptId) {
+    const res = await apiClient.post(`/attempts/${attemptId}/submit`);
+    return res.data;
+  }

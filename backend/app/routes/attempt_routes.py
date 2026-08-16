@@ -128,3 +128,69 @@ def list_my_attempts():
         .all()
     )
     return jsonify({"attempts": [a.to_dict() for a in attempts]}), 200
+@attempt_bp.route("/attempts/<attempt_id>/submit", methods=["POST"])
+@student_required
+def submit_attempt(attempt_id):
+    user_id = get_jwt_identity()
+    attempt = Attempt.query.get(attempt_id)
+
+    if not attempt or attempt.user_id != user_id:
+        return jsonify({"error": "attempt not found"}), 404
+
+    if attempt.status != "IN_PROGRESS":
+        # Already submitted (e.g. double-click, or auto-submit raced a manual submit)
+        return jsonify({"attempt": attempt.to_dict()}), 200
+
+    quiz = Quiz.query.get(attempt.quiz_id)
+    now = datetime.utcnow()
+
+    # Backend is the source of truth for expiry, never trust the client's clock.
+    # If we're past expiry, we still score whatever was answered before the deadline.
+    is_expired = now > attempt.expires_at
+    effective_end_time = attempt.expires_at if is_expired else now
+
+    answers = Answer.query.filter_by(attempt_id=attempt.id).all()
+
+    total_marks = 0
+    obtained_marks = 0
+    correct = 0
+    incorrect = 0
+    unanswered = 0
+
+    for answer in answers:
+        question = Question.query.get(answer.question_id)
+        total_marks += question.marks
+
+        if answer.selected_option_id is None:
+            unanswered += 1
+            answer.is_correct = None
+            continue
+
+        selected_option = next(
+            (o for o in question.options if o.id == answer.selected_option_id), None
+        )
+        is_correct = bool(selected_option and selected_option.is_correct)
+        answer.is_correct = is_correct
+
+        if is_correct:
+            correct += 1
+            obtained_marks += question.marks
+        else:
+            incorrect += 1
+
+    percentage = round((obtained_marks / total_marks) * 100, 1) if total_marks > 0 else 0
+    status = "PASSED" if percentage >= quiz.passing_score else "FAILED"
+    time_taken_seconds = int((effective_end_time - attempt.started_at).total_seconds())
+
+    attempt.score = obtained_marks
+    attempt.percentage = percentage
+    attempt.correct_answers = correct
+    attempt.incorrect_answers = incorrect
+    attempt.unanswered = unanswered
+    attempt.time_taken_seconds = time_taken_seconds
+    attempt.status = status
+    attempt.completed_at = now
+
+    db.session.commit()
+
+    return jsonify({"attempt": attempt.to_dict()}), 200

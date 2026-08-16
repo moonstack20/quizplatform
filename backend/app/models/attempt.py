@@ -36,7 +36,7 @@ class Attempt(db.Model):
             "unanswered": self.unanswered,
             "time_taken_seconds": self.time_taken_seconds,
             "status": self.status,
-            "started_at": self.started_at.isoformat() if self.started_at else None,
-            "expires_at": self.expires_at.isoformat() if self.expires_at else None,
-            "completed_at": self.completed_at.isoformat() if self.completed_at else None,
+            "started_at": self.started_at.isoformat() + "Z" if self.started_at else None,
+            "expires_at": self.expires_at.isoformat() + "Z" if self.expires_at else None,
+            "completed_at": self.completed_at.isoformat() + "Z" if self.completed_at else None,
         }

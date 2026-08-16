@@ -11,6 +11,7 @@ import QuestionManagement from "./pages/admin/QuestionManagement";
 import QuizListing from "./pages/student/QuizListing";
 import QuizDetails from "./pages/student/QuizDetails";
 import QuizAttempt from "./pages/student/QuizAttempt";
+import QuizResult from "./pages/student/QuizResult";
 
 
 
@@ -105,6 +106,14 @@ function App() {
         element={
           <ProtectedRoute allowedRoles={["STUDENT"]}>
             <QuizAttempt />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/quizzes/result/:attemptId"
+        element={
+          <ProtectedRoute allowedRoles={["STUDENT"]}>
+            <QuizResult />
           </ProtectedRoute>
         }
       />
