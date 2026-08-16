@@ -8,6 +8,10 @@ import { useAuth } from "./context/AuthContext";
 import CategoryManagement from "./pages/admin/CategoryManagement";
 import QuizManagement from "./pages/admin/QuizManagement";
 import QuestionManagement from "./pages/admin/QuestionManagement";
+import QuizListing from "./pages/student/QuizListing";
+import QuizDetails from "./pages/student/QuizDetails";
+import QuizAttempt from "./pages/student/QuizAttempt";
+
 
 
 // Redirects a logged-in user to their role's dashboard; sends others to login
@@ -75,6 +79,32 @@ function App() {
         element={
           <ProtectedRoute allowedRoles={["ADMIN"]}>
             <QuestionManagement />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/quizzes"
+        element={
+          <ProtectedRoute allowedRoles={["STUDENT"]}>
+            <QuizListing />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/quizzes/:quizId"
+        element={
+          <ProtectedRoute allowedRoles={["STUDENT"]}>
+            <QuizDetails />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/quizzes/attempt/:attemptId"
+        element={
+          <ProtectedRoute allowedRoles={["STUDENT"]}>
+            <QuizAttempt />
           </ProtectedRoute>
         }
       />
