@@ -262,3 +262,19 @@ def student_dashboard_stats():
         "highest_score": highest_score,
         "total_questions_answered": total_questions_answered,
     }), 200
+@attempt_bp.route("/attempts/<attempt_id>/tab-switch", methods=["PATCH"])
+@student_required
+def record_tab_switch(attempt_id):
+    user_id = get_jwt_identity()
+    attempt = Attempt.query.get(attempt_id)
+
+    if not attempt or attempt.user_id != user_id:
+        return jsonify({"error": "attempt not found"}), 404
+
+    if attempt.status != "IN_PROGRESS":
+        return jsonify({"message": "attempt already completed"}), 200
+
+    attempt.tab_switch_count += 1
+    db.session.commit()
+
+    return jsonify({"tab_switch_count": attempt.tab_switch_count}), 200

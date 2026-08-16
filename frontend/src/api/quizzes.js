@@ -50,3 +50,7 @@ export async function startAttempt(quizId) {
     const res = await apiClient.post(`/attempts/${attemptId}/submit`);
     return res.data;
   }
+  export async function recordTabSwitch(attemptId) {
+    const res = await apiClient.patch(`/attempts/${attemptId}/tab-switch`);
+    return res.data;
+  }

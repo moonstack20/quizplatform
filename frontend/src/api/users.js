@@ -24,3 +24,8 @@ export async function deleteUser(userId) {
   const res = await apiClient.delete(`/users/${userId}`);
   return res.data;
 }
+export async function fetchUserAttempts(userId) {
+    const res = await apiClient.get(`/users/${userId}`);
+    return res.data;
+  }
+  

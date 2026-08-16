@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { fetchAttempt, saveAnswer, submitAttempt } from "../../api/quizzes";
+import { fetchAttempt, saveAnswer, submitAttempt, recordTabSwitch } from "../../api/quizzes";
 
 function formatTime(totalSeconds) {
   const m = Math.floor(totalSeconds / 60);
@@ -19,6 +19,7 @@ function QuizAttempt() {
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState(null);
+  const [tabSwitches, setTabSwitches] = useState(0);
   const submittedRef = useRef(false);
 
   const handleSubmit = useCallback(async () => {
@@ -51,6 +52,18 @@ function QuizAttempt() {
       setLoading(false);
     };
     load();
+  }, [attemptId]);
+
+  // Flag when the student switches tabs or minimizes the window mid-quiz
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden && !submittedRef.current) {
+        setTabSwitches((prev) => prev + 1);
+        recordTabSwitch(attemptId).catch(() => {});
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
   }, [attemptId]);
 
   // Countdown timer — the backend is still the source of truth on submit;
@@ -142,6 +155,12 @@ function QuizAttempt() {
             </Link>
           </div>
         </div>
+
+        {tabSwitches > 0 && (
+          <div className="mb-4 text-sm text-yellow-700 bg-yellow-50 border border-yellow-200 rounded px-3 py-2">
+            Tab switch detected ({tabSwitches}x). This is being recorded.
+          </div>
+        )}
 
         <div className="flex flex-wrap gap-2 mb-6">
           {questions.map((q, i) => (

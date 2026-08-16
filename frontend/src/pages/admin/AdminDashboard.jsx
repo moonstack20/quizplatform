@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { fetchDashboardStats, fetchUsers, updateUserStatus, deleteUser } from "../../api/users";
-import { Link } from "react-router-dom";
-
 
 function StatCard({ label, value }) {
   return (
@@ -126,7 +125,11 @@ function AdminDashboard() {
               <tbody>
                 {users.map((u) => (
                   <tr key={u.id} className="border-b border-slate-100">
-                    <td className="py-2">{u.name}</td>
+                    <td className="py-2">
+                      <Link to={`/admin/users/${u.id}`} className="text-slate-800 hover:underline">
+                        {u.name}
+                      </Link>
+                    </td>
                     <td className="py-2 text-slate-500">{u.email}</td>
                     <td className="py-2">{u.quizzes_attempted}</td>
                     <td className="py-2">{u.average_score !== null ? `${u.average_score}%` : "—"}</td>

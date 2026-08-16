@@ -16,6 +16,7 @@ class Attempt(db.Model):
     incorrect_answers = db.Column(db.Integer, nullable=True)
     unanswered = db.Column(db.Integer, nullable=True)
     time_taken_seconds = db.Column(db.Integer, nullable=True)
+    tab_switch_count = db.Column(db.Integer, nullable=False, default=0)
     status = db.Column(db.String(20), nullable=False, default="IN_PROGRESS")  # IN_PROGRESS | PASSED | FAILED
 
     started_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -35,6 +36,7 @@ class Attempt(db.Model):
             "incorrect_answers": self.incorrect_answers,
             "unanswered": self.unanswered,
             "time_taken_seconds": self.time_taken_seconds,
+            "tab_switch_count": self.tab_switch_count,
             "status": self.status,
             "started_at": self.started_at.isoformat() + "Z" if self.started_at else None,
             "expires_at": self.expires_at.isoformat() + "Z" if self.expires_at else None,
