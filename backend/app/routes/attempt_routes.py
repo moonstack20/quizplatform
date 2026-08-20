@@ -313,8 +313,8 @@ def download_certificate(attempt_id):
     navy = HexColor("#1e3a5f")
     slate = HexColor("#475569")
     light_slate = HexColor("#94a3b8")
-    ribbon_bg = HexColor("#e8ecf3")
-    gold = HexColor("#b8860b")
+    ribbon_bg = HexColor("#fce7f3")  # brand-100
+    brand_pink = HexColor("#db2777")  # brand-600, matches site accent
 
     # Outer thin border
     c.setStrokeColor(HexColor("#cbd5e1"))
@@ -327,7 +327,7 @@ def download_certificate(attempt_id):
     # "Logo" / platform wordmark, top-left
     c.setFont("Helvetica-Bold", 22)
     c.setFillColor(navy)
-    c.drawString(margin_left, height - 90, "QuizPlatform")
+    c.drawString(margin_left, height - 90, "QuizSphere")
     c.setFont("Helvetica", 9)
     c.setFillColor(light_slate)
     c.drawString(margin_left + 1, height - 104, "ONLINE ASSESSMENT")
@@ -356,7 +356,7 @@ def download_certificate(attempt_id):
     # Description line
     c.setFont("Helvetica", 10)
     c.setFillColor(slate)
-    desc = f"an online quiz assessment scored {attempt.percentage}%, offered through Quiz Platform"
+    desc = f"an online quiz assessment scored {attempt.percentage}%, offered through QuizSphere"
     c.drawString(margin_left, height - 280, desc)
 
     # Stats row
@@ -367,27 +367,33 @@ def download_certificate(attempt_id):
     c.drawString(margin_left + 130, stats_y, f"Correct: {attempt.correct_answers}/{attempt.correct_answers + attempt.incorrect_answers + attempt.unanswered}")
     c.drawString(margin_left + 280, stats_y, f"Time: {attempt.time_taken_seconds // 60}m {attempt.time_taken_seconds % 60}s")
 
+    # Certificate ID, small, under stats
+    cert_id_y = stats_y - 18
+    c.setFont("Helvetica", 8)
+    c.setFillColor(light_slate)
+    c.drawString(margin_left, cert_id_y, f"Certificate ID: {attempt.id}")
+
     # Signature block, bottom-left
     sig_y = 130
     c.setFont("Times-Italic", 20)
     c.setFillColor(navy)
-    c.drawString(margin_left, sig_y + 28, "Q. Platform")
+    c.drawString(margin_left, sig_y + 28, "QuizSphere")
     c.setStrokeColor(light_slate)
     c.setLineWidth(0.75)
     c.line(margin_left, sig_y + 16, margin_left + 200, sig_y + 16)
     c.setFont("Helvetica", 9)
     c.setFillColor(slate)
-    c.drawString(margin_left, sig_y, "Quiz Platform")
+    c.drawString(margin_left, sig_y, "QuizSphere")
     c.drawString(margin_left, sig_y - 12, "Automated Assessment System")
 
     # Footer disclaimer
     c.setFont("Helvetica", 7.5)
     c.setFillColor(light_slate)
-    footer_text = "This certificate attests to the learner's completion of an online quiz assessment on Quiz Platform."
+    footer_text = "This certificate attests to the learner's completion of an online quiz assessment on QuizSphere."
     c.drawCentredString((margin_left + content_width) / 2 + 20, 55, footer_text)
     c.drawCentredString(
         (margin_left + content_width) / 2 + 20, 44,
-        f"Verify at quizplatform.local/verify/{attempt.id[:8]}"
+        f"Verify at quizsphere.local/verify/{attempt.id[:8]}"
     )
 
     # --- Vertical ribbon banner, right side ---
@@ -419,8 +425,8 @@ def download_certificate(attempt_id):
     seal_cy = (ribbon_top + ribbon_bottom) / 2 - 10
     seal_r = 48
 
-    # Dotted outer ring
-    c.setFillColor(gold)
+    # Dotted outer ring, now pink to match site accent
+    c.setFillColor(brand_pink)
     num_dots = 40
     for i in range(num_dots):
         angle = 2 * math.pi * i / num_dots
@@ -428,9 +434,9 @@ def download_certificate(attempt_id):
         dot_y = seal_cy + (seal_r + 6) * math.sin(angle)
         c.circle(dot_x, dot_y, 0.8, fill=1, stroke=0)
 
-    # Inner solid circle
+    # Inner solid circle, pink border instead of gold
     c.setFillColor(HexColor("#ffffff"))
-    c.setStrokeColor(gold)
+    c.setStrokeColor(brand_pink)
     c.setLineWidth(1.5)
     c.circle(seal_cx, seal_cy, seal_r, fill=1, stroke=1)
     c.setStrokeColor(navy)
@@ -441,6 +447,7 @@ def download_certificate(attempt_id):
     c.setFillColor(navy)
     c.drawCentredString(seal_cx, seal_cy + 14, "PASSED")
     c.setFont("Helvetica-Bold", 20)
+    c.setFillColor(brand_pink)
     c.drawCentredString(seal_cx, seal_cy - 5, f"{int(attempt.percentage)}%")
     c.setFont("Helvetica", 6.5)
     c.setFillColor(slate)
@@ -455,84 +462,3 @@ def download_certificate(attempt_id):
         as_attachment=True,
         download_name=f"certificate-{quiz.title.replace(' ', '-')}.pdf",
     )
-@attempt_bp.route("/attempts/stats/by-category", methods=["GET"])
-@student_required
-def stats_by_category():
-    from app.models.category import Category
-
-    user_id = get_jwt_identity()
-
-    results = (
-        db.session.query(
-            Category.name,
-            db.func.avg(Attempt.percentage).label("average_score"),
-            db.func.count(Attempt.id).label("attempts"),
-        )
-        .join(Quiz, Quiz.category_id == Category.id)
-        .join(Attempt, Attempt.quiz_id == Quiz.id)
-        .filter(
-            Attempt.user_id == user_id,
-            Attempt.status.in_(["PASSED", "FAILED"]),
-        )
-        .group_by(Category.id, Category.name)
-        .all()
-    )
-
-    categories = [
-        {
-            "category": name,
-            "average_score": round(float(avg), 1),
-            "attempts": count,
-        }
-        for name, avg, count in results
-    ]
-
-    categories.sort(key=lambda c: c["average_score"])
-
-    return jsonify({
-        "categories": categories,
-        "weakest": categories[0] if categories else None,
-        "strongest": categories[-1] if len(categories) > 1 else None,
-    }), 200
-@attempt_bp.route("/questions/<question_id>/explain", methods=["POST"])
-@student_required
-def generate_explanation(question_id):
-    from groq import Groq
-    from flask import current_app
-
-    question = Question.query.get(question_id)
-    if not question:
-        return jsonify({"error": "question not found"}), 404
-
-    # If the admin already wrote an explanation, just return it — no need to call the AI
-    if question.explanation and question.explanation.strip():
-        return jsonify({"explanation": question.explanation, "source": "admin"}), 200
-
-    correct_option = next((o for o in question.options if o.is_correct), None)
-    if not correct_option:
-        return jsonify({"error": "no correct option found for this question"}), 400
-
-    options_text = "\n".join(f"- {o.option_text}" for o in question.options)
-
-    prompt = (
-        f"Question: {question.question_text}\n"
-        f"Options:\n{options_text}\n"
-        f"Correct answer: {correct_option.option_text}\n\n"
-        "Write a short, clear explanation (2-3 sentences max) of why this is the correct answer. "
-        "Do not repeat the question. Be direct and educational, suitable for a student reviewing "
-        "a quiz result."
-    )
-
-    try:
-        client = Groq(api_key=current_app.config["GROQ_API_KEY"])
-        response = client.chat.completions.create(
-            model="llama-3.1-8b-instant",
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=150,
-            temperature=0.5,
-        )
-        explanation = response.choices[0].message.content.strip()
-    except Exception as e:
-        return jsonify({"error": "could not generate explanation", "detail": str(e)}), 502
-
-    return jsonify({"explanation": explanation, "source": "ai"}), 200

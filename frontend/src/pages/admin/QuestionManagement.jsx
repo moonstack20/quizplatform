@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { fetchQuestions, createQuestion, updateQuestion, deleteQuestion } from "../../api/questions";
 import { fetchQuiz } from "../../api/quizzes";
+import ConfirmDialog from "../../components/ConfirmDialog";
 
 const emptyOptions = [
   { option_text: "", is_correct: true },
@@ -26,6 +27,7 @@ function QuestionManagement() {
   const [editingId, setEditingId] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [deleteTarget, setDeleteTarget] = useState(null);
 
   const load = async () => {
     setLoading(true);
@@ -87,10 +89,20 @@ function QuestionManagement() {
     });
   };
 
-  const handleDelete = async (q) => {
-    if (!confirm("Delete this question?")) return;
-    await deleteQuestion(q.id);
-    load();
+  const handleDeleteClick = (q) => {
+    setDeleteTarget(q);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    try {
+      await deleteQuestion(deleteTarget.id);
+      load();
+    } catch (err) {
+      alert(err.response?.data?.error || "Could not delete question");
+    } finally {
+      setDeleteTarget(null);
+    }
   };
 
   return (
@@ -220,7 +232,7 @@ function QuestionManagement() {
                     <button onClick={() => handleEdit(q)} className="text-slate-600 hover:underline">
                       Edit
                     </button>
-                    <button onClick={() => handleDelete(q)} className="text-red-600 hover:underline">
+                    <button onClick={() => handleDeleteClick(q)} className="text-red-600 hover:underline">
                       Delete
                     </button>
                   </div>
@@ -241,6 +253,14 @@ function QuestionManagement() {
           )}
         </div>
       </div>
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        title="Delete question?"
+        message="This action cannot be undone."
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   );
 }

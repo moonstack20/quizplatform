@@ -2,6 +2,9 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { fetchStudentStats, fetchMyAttempts, fetchCategoryStats } from "../../api/attempts";
+import { fetchLeaderboard } from "../../api/leaderboard";
+import Leaderboard from "../../components/Leaderboard";
+import Brand from "../../components/Brand";
 
 function StatCard({ label, value }) {
   return (
@@ -17,19 +20,22 @@ function StudentDashboard() {
   const [stats, setStats] = useState(null);
   const [attempts, setAttempts] = useState([]);
   const [categoryStats, setCategoryStats] = useState(null);
+  const [leaderboard, setLeaderboard] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const load = async () => {
       setLoading(true);
-      const [statsData, attemptsData, categoryData] = await Promise.all([
+      const [statsData, attemptsData, categoryData, leaderboardData] = await Promise.all([
         fetchStudentStats(),
         fetchMyAttempts(),
         fetchCategoryStats(),
+        fetchLeaderboard(),
       ]);
       setStats(statsData);
       setAttempts(attemptsData.attempts.filter((a) => a.status !== "IN_PROGRESS"));
       setCategoryStats(categoryData);
+      setLeaderboard(leaderboardData.leaderboard);
       setLoading(false);
     };
     load();
@@ -39,7 +45,11 @@ function StudentDashboard() {
     <div className="min-h-screen bg-slate-50 p-8">
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-semibold text-slate-800">Student Dashboard</h1>
+          <div className="flex items-center gap-3">
+            <Brand size="sm" />
+            <span className="text-slate-300">|</span>
+            <h1 className="text-xl font-semibold text-slate-800">Student Dashboard</h1>
+          </div>
           <div className="flex items-center gap-4">
             <Link to="/quizzes" className="text-sm text-slate-600 hover:underline">
               Browse Quizzes
@@ -62,7 +72,7 @@ function StudentDashboard() {
                 <StatCard label="Failed" value={stats.quizzes_failed} />
                 <StatCard label="Average Score" value={`${stats.average_score}%`} />
                 <StatCard label="Highest Score" value={`${stats.highest_score}%`} />
-                <StatCard label="Questions Answered" value={stats.total_questions_answered} />
+                <StatCard label="Questions Actually Answered" value={stats.total_questions_answered} />
               </div>
             )}
 
@@ -95,6 +105,10 @@ function StudentDashboard() {
                 )}
               </div>
             )}
+
+            <div className="mb-6">
+              <Leaderboard data={leaderboard} currentUserId={user.id} title="Leaderboard" />
+            </div>
 
             <div className="bg-white border border-slate-200 rounded-lg p-6">
               <h2 className="text-lg font-semibold text-slate-800 mb-4">Recent Attempts</h2>

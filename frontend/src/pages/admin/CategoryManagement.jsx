@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { fetchCategories, createCategory, updateCategory, deleteCategory } from "../../api/categories";
+import ConfirmDialog from "../../components/ConfirmDialog";
 
 function CategoryManagement() {
   const [categories, setCategories] = useState([]);
@@ -9,6 +10,7 @@ function CategoryManagement() {
   const [editingId, setEditingId] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [deleteTarget, setDeleteTarget] = useState(null);
 
   const load = async () => {
     setLoading(true);
@@ -50,13 +52,19 @@ function CategoryManagement() {
     setDescription(cat.description || "");
   };
 
-  const handleDelete = async (cat) => {
-    if (!confirm(`Delete category "${cat.name}"?`)) return;
+  const handleDeleteClick = (cat) => {
+    setDeleteTarget(cat);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
     try {
-      await deleteCategory(cat.id);
+      await deleteCategory(deleteTarget.id);
       load();
     } catch (err) {
       alert(err.response?.data?.error || "Could not delete category");
+    } finally {
+      setDeleteTarget(null);
     }
   };
 
@@ -138,7 +146,7 @@ function CategoryManagement() {
                       <button onClick={() => handleEdit(cat)} className="text-slate-600 hover:underline">
                         Edit
                       </button>
-                      <button onClick={() => handleDelete(cat)} className="text-red-600 hover:underline">
+                      <button onClick={() => handleDeleteClick(cat)} className="text-red-600 hover:underline">
                         Delete
                       </button>
                     </td>
@@ -149,6 +157,14 @@ function CategoryManagement() {
           )}
         </div>
       </div>
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        title="Delete category?"
+        message={deleteTarget ? `Delete "${deleteTarget.name}"? This action cannot be undone.` : ""}
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   );
 }

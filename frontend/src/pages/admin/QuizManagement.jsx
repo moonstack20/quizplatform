@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { fetchQuizzes, createQuiz, updateQuiz, deleteQuiz, togglePublish } from "../../api/quizzes";
 import { fetchCategories } from "../../api/categories";
+import ConfirmDialog from "../../components/ConfirmDialog";
 
 const emptyForm = {
   title: "",
@@ -20,6 +21,7 @@ function QuizManagement() {
   const [editingId, setEditingId] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [deleteTarget, setDeleteTarget] = useState(null);
 
   const load = async () => {
     setLoading(true);
@@ -79,10 +81,20 @@ function QuizManagement() {
     });
   };
 
-  const handleDelete = async (quiz) => {
-    if (!confirm(`Delete quiz "${quiz.title}"?`)) return;
-    await deleteQuiz(quiz.id);
-    load();
+  const handleDeleteClick = (quiz) => {
+    setDeleteTarget(quiz);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    try {
+      await deleteQuiz(deleteTarget.id);
+      load();
+    } catch (err) {
+      alert(err.response?.data?.error || "Could not delete quiz");
+    } finally {
+      setDeleteTarget(null);
+    }
   };
 
   const handlePublishToggle = async (quiz) => {
@@ -264,7 +276,7 @@ function QuizManagement() {
                       <button onClick={() => handlePublishToggle(quiz)} className="text-slate-600 hover:underline">
                         {quiz.status === "PUBLISHED" ? "Unpublish" : "Publish"}
                       </button>
-                      <button onClick={() => handleDelete(quiz)} className="text-red-600 hover:underline">
+                      <button onClick={() => handleDeleteClick(quiz)} className="text-red-600 hover:underline">
                         Delete
                       </button>
                     </td>
@@ -275,6 +287,14 @@ function QuizManagement() {
           )}
         </div>
       </div>
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        title="Delete quiz?"
+        message={deleteTarget ? `Delete "${deleteTarget.title}"? This will remove all its questions too. This action cannot be undone.` : ""}
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   );
 }

@@ -2,6 +2,11 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { fetchDashboardStats, fetchUsers, updateUserStatus, deleteUser } from "../../api/users";
+import { fetchQuizAnalytics } from "../../api/admin";
+import { fetchLeaderboard } from "../../api/leaderboard";
+import QuizAnalyticsChart from "../../components/QuizAnalyticsChart";
+import Leaderboard from "../../components/Leaderboard";
+import Brand from "../../components/Brand";
 
 function StatCard({ label, value }) {
   return (
@@ -18,16 +23,22 @@ function AdminDashboard() {
   const [users, setUsers] = useState([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
+  const [analytics, setAnalytics] = useState([]);
+  const [leaderboard, setLeaderboard] = useState([]);
 
   const loadData = async () => {
     setLoading(true);
     try {
-      const [statsData, usersData] = await Promise.all([
+      const [statsData, usersData, analyticsData, leaderboardData] = await Promise.all([
         fetchDashboardStats(),
         fetchUsers(search),
+        fetchQuizAnalytics(),
+        fetchLeaderboard(),
       ]);
       setStats(statsData);
       setUsers(usersData.users);
+      setAnalytics(analyticsData.analytics);
+      setLeaderboard(leaderboardData.leaderboard);
     } catch (err) {
       console.error(err);
     } finally {
@@ -61,7 +72,11 @@ function AdminDashboard() {
     <div className="min-h-screen bg-slate-50 p-8">
       <div className="max-w-5xl mx-auto">
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-semibold text-slate-800">Admin Dashboard</h1>
+          <div className="flex items-center gap-3">
+            <Brand size="sm" />
+            <span className="text-slate-300">|</span>
+            <h1 className="text-xl font-semibold text-slate-800">Admin Dashboard</h1>
+          </div>
           <div className="flex items-center gap-4">
             <Link to="/admin/categories" className="text-sm text-slate-600 hover:underline">
               Categories
@@ -88,6 +103,15 @@ function AdminDashboard() {
             <StatCard label="Passed / Failed" value={`${stats.passed_attempts} / ${stats.failed_attempts}`} />
           </div>
         )}
+
+        <div className="bg-white border border-slate-200 rounded-lg p-6 mb-6">
+          <h2 className="text-lg font-semibold text-slate-800 mb-4">Quiz Performance</h2>
+          <QuizAnalyticsChart data={analytics} />
+        </div>
+
+        <div className="mb-6">
+          <Leaderboard data={leaderboard} title="Top Performers" />
+        </div>
 
         <div className="bg-white border border-slate-200 rounded-lg p-6">
           <div className="flex items-center justify-between mb-4">

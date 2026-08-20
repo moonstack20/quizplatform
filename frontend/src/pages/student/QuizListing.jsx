@@ -3,6 +3,22 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { fetchQuizzes } from "../../api/quizzes";
 import { fetchCategories } from "../../api/categories";
+import Brand from "../../components/Brand";
+
+const DIFFICULTY_STYLES = {
+  BEGINNER: { label: "🟢 Beginner", classes: "bg-green-100 text-green-700" },
+  INTERMEDIATE: { label: "🟡 Intermediate", classes: "bg-yellow-100 text-yellow-700" },
+  ADVANCED: { label: "🔴 Advanced", classes: "bg-red-100 text-red-700" },
+};
+
+function DifficultyBadge({ difficulty }) {
+  const style = DIFFICULTY_STYLES[difficulty] || { label: difficulty, classes: "bg-slate-100 text-slate-600" };
+  return (
+    <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${style.classes}`}>
+      {style.label}
+    </span>
+  );
+}
 
 function QuizListing() {
   const { user, logout } = useAuth();
@@ -45,7 +61,11 @@ function QuizListing() {
     <div className="min-h-screen bg-slate-50 p-8">
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-semibold text-slate-800">Available Quizzes</h1>
+          <div className="flex items-center gap-3">
+            <Brand size="sm" />
+            <span className="text-slate-300">|</span>
+            <h1 className="text-xl font-semibold text-slate-800">Available Quizzes</h1>
+          </div>
           <div className="flex items-center gap-4">
             <Link to="/dashboard" className="text-sm text-slate-600 hover:underline">
               Dashboard
@@ -63,12 +83,12 @@ function QuizListing() {
             placeholder="Search quizzes"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="border border-slate-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
+            className="border border-slate-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
           />
           <select
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
-            className="border border-slate-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
+            className="border border-slate-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
           >
             <option value="">All Categories</option>
             {categories.map((c) => (
@@ -78,14 +98,14 @@ function QuizListing() {
           <select
             value={difficultyFilter}
             onChange={(e) => setDifficultyFilter(e.target.value)}
-            className="border border-slate-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
+            className="border border-slate-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
           >
             <option value="">All Difficulties</option>
             <option value="BEGINNER">Beginner</option>
             <option value="INTERMEDIATE">Intermediate</option>
             <option value="ADVANCED">Advanced</option>
           </select>
-          <button type="submit" className="bg-slate-800 text-white px-4 py-2 rounded text-sm hover:bg-slate-700">
+          <button type="submit" className="bg-brand-600 text-white px-4 py-2 rounded text-sm hover:bg-brand-700">
             Search
           </button>
         </form>
@@ -100,14 +120,15 @@ function QuizListing() {
               <Link
                 key={quiz.id}
                 to={`/quizzes/${quiz.id}`}
-                className="bg-white border border-slate-200 rounded-lg p-5 hover:border-slate-400 transition-colors"
+                className="bg-white border border-slate-200 rounded-lg p-5 hover:border-brand-400 hover:shadow-sm transition-all"
               >
-                <h3 className="font-semibold text-slate-800">{quiz.title}</h3>
+                <div className="flex items-start justify-between gap-2">
+                  <h3 className="font-semibold text-slate-800">{quiz.title}</h3>
+                  <DifficultyBadge difficulty={quiz.difficulty} />
+                </div>
                 <p className="text-sm text-slate-500 mt-1 line-clamp-2">{quiz.description}</p>
                 <div className="flex items-center gap-3 mt-3 text-xs text-slate-500">
                   <span>{categoryName(quiz.category_id)}</span>
-                  <span>·</span>
-                  <span>{quiz.difficulty}</span>
                   <span>·</span>
                   <span>{quiz.duration_minutes} min</span>
                   <span>·</span>

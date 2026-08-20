@@ -43,6 +43,7 @@ def create_app():
     from app.routes.question_routes import question_bp
     from app.routes.attempt_routes import attempt_bp
     from app.routes.leaderboard_routes import leaderboard_bp
+    from app.routes.admin_routes import admin_bp
 
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
     app.register_blueprint(user_bp, url_prefix="/api/users")
@@ -51,6 +52,7 @@ def create_app():
     app.register_blueprint(question_bp, url_prefix="/api")
     app.register_blueprint(attempt_bp, url_prefix="/api")
     app.register_blueprint(leaderboard_bp, url_prefix="/api/leaderboard")
+    app.register_blueprint(admin_bp, url_prefix="/api/admin")
 
     @app.route("/api/health")
     def health():
