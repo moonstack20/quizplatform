@@ -3,6 +3,7 @@ from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.utils.decorators import student_required
 from app.models.quiz import Quiz
+from app.models.category import Category
 from app.models.question import Question
 from app.models.attempt import Attempt
 from app.models.answer import Answer
@@ -268,8 +269,47 @@ def student_dashboard_stats():
         "quizzes_failed": failed,
         "average_score": average_score,
         "highest_score": highest_score,
-        "total_questions_answered": total_questions_answered,
+                "total_questions_answered": total_questions_answered,
     }), 200
+
+@attempt_bp.route("/attempts/stats/by-category", methods=["GET"])
+@student_required
+def student_stats_by_category():
+    user_id = get_jwt_identity()
+
+    rows = (
+        db.session.query(Category.name, Answer.is_correct)
+        .join(Quiz, Quiz.category_id == Category.id)
+        .join(Question, Question.quiz_id == Quiz.id)
+        .join(Answer, Answer.question_id == Question.id)
+        .join(Attempt, Attempt.id == Answer.attempt_id)
+        .filter(Attempt.user_id == user_id, Attempt.status.in_(["PASSED", "FAILED"]))
+        .all()
+    )
+
+    category_stats = {}
+    for category_name, is_correct in rows:
+        name = category_name or "Uncategorized"
+        if name not in category_stats:
+            category_stats[name] = {"correct": 0, "total": 0}
+        category_stats[name]["total"] += 1
+        if is_correct:
+            category_stats[name]["correct"] += 1
+
+    result = []
+    for name, data in category_stats.items():
+        accuracy = round((data["correct"] / data["total"]) * 100, 1) if data["total"] else 0
+        result.append({
+            "category": name,
+            "correct": data["correct"],
+            "total": data["total"],
+            "accuracy": accuracy,
+        })
+
+    result.sort(key=lambda x: x["accuracy"])
+
+    return jsonify({"categories": result}), 200
+
 @attempt_bp.route("/attempts/<attempt_id>/tab-switch", methods=["PATCH"])
 @student_required
 def record_tab_switch(attempt_id):
